@@ -32,7 +32,7 @@ app.use(bodyParser.json({limit: '2mb'}));
 readdirSync('./routes').map((filename) => app.use('/api', require('./routes/' + filename)));
 
 app.get('/', (req, res) => {
-    res.json({
+    res.status(200).json({
         'status': 200,
         'results': 'All OK!'
     })

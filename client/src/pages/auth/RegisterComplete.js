@@ -1,14 +1,27 @@
 import React, {useState, useEffect} from 'react';
-import {useNavigate} from 'react-router-dom';
 import {toast} from 'react-toastify';
+import {useDispatch} from 'react-redux';
+import {useNavigate} from 'react-router-dom';
 
 import {auth} from '../../_firebase';
+import {createUser} from '../../api/User';
+//import {roleBasedRedirect} from '../../functions/Common';
 
 
 const RegisterComplete = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const dispatch = useDispatch();
     const navigate = useNavigate();
+
+    const roleBasedRedirect = (role) => {
+        if (role === 'admin') {
+            navigate('/admin/dashboard');
+        } else {
+            // Normal user
+            navigate('/user/history');
+        }
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -43,10 +56,25 @@ const RegisterComplete = () => {
                 const idTokenResult = user.getIdTokenResult();
                 console.log('User: ', user, 'ID & Token: ', idTokenResult);
 
-                // redux store
+                // Update user state by getting the details from the database
+                createUser(idTokenResult.token).then((res) => {
+                    dispatch({
+                        type: 'LOGGED_IN_USER',
+                        payload: {
+                            email: res.data.email,
+                            name: res.data.name,
+                            role: res.data.role,
+                            userId: res.data._id,
+                            token: idTokenResult.token
+                        }
+                    });
+                    
+                    // redux store
 
-                // redirect to dashboard
-                navigate('/');  
+                    
+                    // redirect 
+                    roleBasedRedirect(res.data.role);
+                });
             }
 
         } catch(error) {

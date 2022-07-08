@@ -6,16 +6,8 @@ import {Link, useNavigate} from 'react-router-dom';
 import {auth, googleAuthProvider} from '../../_firebase';
 import {Button} from 'antd';
 import {MailOutlined, GoogleOutlined} from '@ant-design/icons';
-import axios from 'axios';
-
-// Create user
-const createUser = async (token) => {
-    return await axios.post(process.env.REACT_APP_API_URL + '/user/create', {}, {
-        headers: {
-            authToken: token
-        }
-    });
-}
+import {createUser} from '../../api/User';
+//import { roleBasedRedirect } from '../../functions/Common';
 
 const Login = () => {
     const [email, setEmail] = useState(window.localStorage.getItem('hyproid:reg-email', ''));
@@ -24,6 +16,16 @@ const Login = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
+    const roleBasedRedirect = (role) => {
+        if (role === 'admin') {
+            navigate('/admin/dashboard');
+        } else {
+            // Normal user
+            navigate('/user/history');
+        }
+    }
+    
+    
     const googleSubmit = async (e) => {
         e.preventDefault();
 
@@ -34,24 +36,29 @@ const Login = () => {
             const {user} = result;
             const idTokenResult = await user.getIdTokenResult();
 
-            dispatch({
-                type: 'LOGGED_IN_USER',
-                payload: {
-                    email: user.email,
-                    token: idTokenResult.token 
-                }
-            });
+            // Get user details from the database
+            createUser(idTokenResult.token).then((res) => {
+                // Set user state
+                dispatch({
+                    type: 'LOGGED_IN_USER',
+                    payload: {
+                        email: res.data.email,
+                        name: res.data.name,
+                        role: res.data.role,
+                        userId: res.data._id,
+                        token: idTokenResult.token
+                    }
+                });     
 
-            // Redirect to Home Page
-            navigate('/');
+                // Redirect to Home Page
+                roleBasedRedirect(res.data.role);
+            });
         })
         .catch((error) => {
             console.log(error);
             toast.error(error.message);
         });
-
-
-    }
+    } // googleSubmit
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -65,12 +72,15 @@ const Login = () => {
             const idTokenResult = await user.getIdTokenResult();
 
             // Create User
-            createUser(idTokenResult.token).then((results) => {
+            createUser(idTokenResult.token).then((res) => {
                 // Set user state
                 dispatch({
                     type: 'LOGGED_IN_USER',
                     payload: {
-                        email: user.email,
+                        email: res.data.email,
+                        name: res.data.name,
+                        role: res.data.role,
+                        userId: res.data._id,
                         token: idTokenResult.token
                     }
                 });
@@ -93,6 +103,7 @@ const Login = () => {
     useEffect((e) => {
         const email = window.localStorage.getItem('hyproid:reg-email');
         setEmail(email ? email : 'dev.jeyakumar@gmail.com');
+        setPassword(password || 'J81k@123'); //!
 
         // @todo: Check if it is redirected from "Reset Password" callback?
         // If so then clear the user state.
